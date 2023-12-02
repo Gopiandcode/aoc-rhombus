@@ -15,10 +15,6 @@ import:
       #{string-prefix?} as is_string_prefix
       #{string-split} as split
 
-  lib("net/http-client.rkt") as http_client:
-    rename:
-      #{http-sendrecv} as sendrecv
-
 def input: aoc_api.retrieve_input_for_day(1)
 def lines: string.split(input, "\n")
 

@@ -46,11 +46,11 @@ fun download_input_for_day(day :: Int):
 fun path_to_input_file_for_day(day :: Int):
   racket.#{build-path}(
     inputs_dir,
-    racket.format("~a", 1)
+    racket.format("~a", day)
   )
 
 
-fun retrieve_input_for_day(day:: Int):
+fun retrieve_input_for_day(day :: Int):
   def input_file_path: path_to_input_file_for_day(day)
   if !racket.exists_file(input_file_path)
   | def input_for_day: download_input_for_day(day)
