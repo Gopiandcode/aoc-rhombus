@@ -2,6 +2,7 @@
 
 import:
   file("./utils/aoc_api.rhm")
+  file("./utils/lang.rhm") open
   lib("racket/main.rkt") as racket:
     rename:
       #{char-numeric?} as is_numeric_char
@@ -15,25 +16,6 @@ import:
       #{string-prefix?} as is_string_prefix
       #{string-split} as split
       #{string-trim} as trim
-
-expr.macro 'unless $expr ...
-            | $body
-              ...':
-  'if $expr ...
-   | #void
-   | $body
-     ...'
-
-expr.macro 'while $expr ...:
-              $body
-              ...':
-  'block:
-     fun loop():
-       when $expr ...
-       | $body
-         ...
-         loop()
-     loop()'
 
 def input: aoc_api.retrieve_input_for_day(3)
 
@@ -168,4 +150,4 @@ check:
   solve_part2(test_input)
   ~is 467835
 
-solve_part2(input)
+// solve_part2(input)

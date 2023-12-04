@@ -1,0 +1,46 @@
+#lang rhombus/and_meta
+
+import:
+  lib("racket/main.rkt") as racket
+  lib("racket/string.rkt") as racket_string:
+    rename:
+      #{string-split} as split
+      #{non-empty-string?} as string_is_not_empty
+
+
+export:
+  string
+  set
+  array
+
+namespace array:
+  export:
+    sum
+
+  fun sum(arr :: Array) :: Number:
+    for values(sum=0):
+      each elt: arr
+      sum + elt
+
+namespace set:
+  export:
+    of_list
+
+  fun of_list(xs :: List) :: Set:
+    for Set (x : xs): x
+
+
+namespace string:
+  export:
+    split_lines
+    split
+
+  fun split_lines(s :: ReadableString) :: List.of(ReadableString):
+    racket_string.split(s, "\n")
+
+  fun split(s :: ReadableString, on :: ReadableString) :: List.of(String):
+    let segments = racket_string.split(s, on)
+    for List:
+      each seg: segments
+      keep_when racket_string.string_is_not_empty(seg)
+      seg.to_string()
