@@ -12,6 +12,7 @@ export:
   string
   set
   array
+  list
 
 namespace array:
   export:
@@ -38,9 +39,31 @@ namespace string:
   fun split_lines(s :: ReadableString) :: List.of(ReadableString):
     racket_string.split(s, "\n")
 
-  fun split(s :: ReadableString, on :: ReadableString) :: List.of(String):
+  fun split(s :: ReadableString, on :: ReadableString, ~keep_blank: keep_blank = #false) :: List.of(String):
     let segments = racket_string.split(s, on)
     for List:
       each seg: segments
-      keep_when racket_string.string_is_not_empty(seg)
+      keep_when keep_blank || racket_string.string_is_not_empty(seg)
       seg.to_string()
+
+namespace list:
+  export:
+    is_empty
+    partition
+
+  fun is_empty(ls :: List) :: Boolean:
+    match ls
+    | []: #true
+    | List.cons(_, _): #false
+
+  fun partition(input_ls :: List, by) :: List:
+    fun loop(acc, current_ls, tail):
+      match tail
+      | []: List.cons(current_ls.reverse(), acc)
+      | List.cons(hd, tail):
+          if hd == by
+          | loop(List.cons(current_ls.reverse(), acc), [], tail)
+          | loop(acc, List.cons(hd,current_ls), tail)
+    let result: loop([], [], input_ls)
+    result.reverse()
+
