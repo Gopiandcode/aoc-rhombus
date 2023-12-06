@@ -35,6 +35,10 @@ namespace string:
   export:
     split_lines
     split
+    join
+
+  fun join(~join_by: join="", s :: ReadableString, ...) :: String:
+    (racket_string.#{string-join}([s, ...], join) :: ReadableString).to_string()
 
   fun split_lines(s :: ReadableString) :: List.of(ReadableString):
     racket_string.split(s, "\n")
