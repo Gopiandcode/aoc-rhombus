@@ -95,7 +95,7 @@ class Hand(s :: String, chars :: List.of(Card), char_set :: Map.of(Char, Int), r
      if joker_count == 0
      | score()
      | let values(max_occ, max_cs):
-         for values(res=#false, res_cs=#false):
+         for values(res=0, res_cs=#false):
            each values(k, cs): rev_char_set
            cond
            | !res: values(k, cs)
@@ -105,7 +105,7 @@ class Hand(s :: String, chars :: List.of(Card), char_set :: Map.of(Char, Int), r
        match joker_occ
        | 5: 6
        | 4: 5
-       | 3 when rev_char_set[2].length() == 2: 4
+       | 3 when rev_char_set.has_key(2) && rev_char_set[2].length() == 2: 4
        | 3: 3
        | 2: 1
 
@@ -253,4 +253,5 @@ check:
   ~is 5905
 
 let result2: calculate_result2(input)
-aoc_api.submit_result_for_day(7, result2, ~level: 2)
+// aoc_api.submit_result_for_day(7, result2, ~level: 2)
+
