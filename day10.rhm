@@ -217,3 +217,12 @@ let result1 = solve_for_part1(input)
 // result1
 
 
+def values(graph, start_pos): parse_input(input)
+
+def values(costs, parents): shortest_path(graph, start_pos)
+
+def [cycle, ...] = find_cycle(graph, start_pos)
+
+def path_points: Set{cycle, ...}
+
+
