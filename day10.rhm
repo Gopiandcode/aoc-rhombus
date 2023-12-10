@@ -1,0 +1,219 @@
+#lang rhombus/and_meta
+
+import:
+  file("./utils/aoc_api.rhm")
+  file("./utils/utils.rhm")
+  file("./utils/lang.rhm") open
+  lib("racket/main.rkt") as racket:
+    rename:
+      #{char-numeric?} as is_numeric_char
+      #{char->integer} as char_to_int
+      #{with-input-from-file} as with_input_from_file
+      #{with-output-to-file} as with_output_to_file
+      #{file-exists?} as exists_file
+
+  lib("racket/string.rkt") as string:
+    rename:
+      #{string-prefix?} as is_string_prefix
+      #{string-split} as split
+      #{string-trim} as trim
+
+def input: aoc_api.retrieve_input_for_day(10)
+
+let test_input:
+  multiline:
+   "....."
+   ".S-7."
+   ".|.|."
+   ".L-J."
+   "....."
+
+let test_input2:
+  multiline:
+    "..F7."
+    ".FJ|."
+    "SJ.L7"
+    "|F--J"
+    "LJ..."
+
+
+fun MutableSet.pop(set :: MutableSet):
+  let element:
+    for values(result=#false) (s : set):
+      final_when #true
+      s
+  set[element] := #false
+  element
+
+fun List.contains(ls, elt):
+  match ls
+  | []: #false
+  | List.cons(hd, tail):
+      if hd == elt
+      | #true
+      | List.contains(tail, elt)
+
+class Point(x :: Int, y :: Int):
+  method north() :: Point: Point(x, y - 1)
+  method east() :: Point: Point(x+1, y)
+  method south() :: Point: Point(x, y+1)
+  method west() :: Point: Point(x-1, y)
+
+fun add_directed_edge(graph, c1 :: Point, c2 :: Point):
+  if graph.has_key(c1)
+  | graph[c1][c2] := #true
+  | graph[c1] := MutableSet(c2)
+  
+fun add_edge(graph, c1, c2):
+  add_directed_edge(graph, c1, c2)
+  add_directed_edge(graph, c2, c1)
+
+class Pipe(north :: Boolean, east :: Boolean, south :: Boolean, west :: Boolean)
+
+fun Pipe.of_char(char):
+  match char
+  | #{#\S}: Pipe(#true,#true,#true,#true)
+  | #{#\.}: Pipe(#false,#false,#false,#false)
+  | #{#\|}: Pipe(#true,#false,#true, #false)
+  | #{#\-}: Pipe(#false, #true , #false, #true)
+  | #{#\L}: Pipe(#true , #true , #false, #false)
+  | #{#\J}: Pipe(#true , #false, #false, #true)
+  | #{#\7}: Pipe(#false, #false, #true , #true)
+  | #{#\F}: Pipe(#false, #true , #true , #false)
+
+
+fun handle_edge(lines, graph, coord, char):
+  fun get_pipe(coord):
+    cond
+    | 0 <= coord.y && coord.y < lines.length() && \
+      0 <= coord.x && coord.x < lines[coord.y].length():
+         Pipe.of_char(lines[coord.y][coord.x])
+    | ~else: Pipe(#false,#false,#false,#false)  
+
+  match char
+  | #{#\.}: #void
+  | c:
+      let pipe = Pipe.of_char(c)
+      when pipe
+      | when pipe.north && get_pipe(coord.north()).south
+        | add_edge(graph, coord, coord.north())
+        when pipe.east && get_pipe(coord.east()).west
+        | add_edge(graph, coord, coord.east())
+        when pipe.south && get_pipe(coord.south()).north
+        | add_edge(graph, coord, coord.south())
+        when pipe.west && get_pipe(coord.west()).east
+        | add_edge(graph, coord, coord.west())
+
+fun parse_input(raw_input :: ReadableString):
+  let graph = MutableMap()
+  let lines = utils.string.split_lines(raw_input)
+  let mutable start_pos = #false
+  for:
+    each:
+      line : lines
+      i : 0 ..
+    each:
+      char : line
+      j : 0 ..
+    if char == #{#\S}
+    | start_pos := Point(j,i)
+    | handle_edge(lines, graph, Point(j,i), char)
+  values(graph, start_pos)  
+
+fun get_connected(graph, node):
+  if graph.has_key(node)
+  | graph[node]
+  | []
+
+fun shortest_path(graph, start_pos):
+  let costs: MutableMap{start_pos: 0}
+  let parents: MutableMap{}
+  let mutable queue: [start_pos]
+
+  fun update_cost(node, new_cost):
+    cond:
+    | costs.has_key(node) && costs[node] > new_cost:
+        costs[node] := new_cost
+        #true
+    | !costs.has_key(node):
+        costs[node] := new_cost
+        #true
+    | ~else: #false
+
+  fun remove_node(nodes, neighbour):
+    for List:
+      each node : nodes
+      skip_when node == neighbour
+      node
+
+  fun insert_into_queue(get_cost, neighbour, queue):
+    match queue
+    | []: [neighbour]
+    | [node, tail, ...] when get_cost(node) > get_cost(neighbour):
+        let [new_tail, ...]: remove_node([node, tail, ...], neighbour)
+        [neighbour, new_tail, ...]
+    | [node, tail, ...]:
+        List.cons(node, insert_into_queue(get_cost, neighbour, [tail, ...]))
+
+  while queue != []:
+    let List.cons(node, tail) = queue
+    queue := tail
+    let new_cost: costs[node] + 1
+    for (neighbour : get_connected(graph, node)):
+      when update_cost(neighbour, new_cost)
+      | queue := insert_into_queue(fun (node): costs[node], neighbour, queue)
+        parents[neighbour] := node
+
+  values(costs, parents)
+
+
+fun find_cycle(graph, start_pos):
+  class Path(current, path)
+  let {start_neighbour, ...} = get_connected(graph, start_pos).snapshot()
+  let mutable parent = MutableMap{}
+  let mutable queue = [Path(start_neighbour, [start_pos]), ...]
+  def mutable cycle_found = #false
+  for(start_neighbour : get_connected(graph, start_pos)):
+    parent[start_neighbour] := start_pos
+
+  while queue != [] && !cycle_found:
+    let [Path(pos, path), rest, ...] = queue
+    queue := [rest,...]
+    let neighbours = get_connected(graph, pos)
+
+    for (neighbour : neighbours):
+      skip_when parent.has_key(pos) && parent[pos] == neighbour
+      let entry = Path(neighbour, List.cons(pos, path))
+      queue := queue ++ [entry]
+      parent[neighbour] := pos
+      when get_connected(graph, neighbour)[start_pos]
+      | cycle_found := entry
+
+  List.cons(cycle_found.current, cycle_found.path).reverse()
+
+
+fun solve_for_part1(raw_input :: ReadableString):
+  def values(graph, start_pos): parse_input(raw_input)
+
+  def values(costs, parents): shortest_path(graph, start_pos)
+
+  def cycle = find_cycle(graph, start_pos)
+
+  for values(max_cost=#false) (node : cycle):
+    cond
+    | !max_cost: costs[node]
+    | costs[node] > max_cost: costs[node]
+    | ~else: max_cost
+
+check:
+  solve_for_part1(test_input)
+  ~is 4
+  
+check:
+  solve_for_part1(test_input2)
+  ~is 8
+
+let result1 = solve_for_part1(input)
+// result1
+
+
