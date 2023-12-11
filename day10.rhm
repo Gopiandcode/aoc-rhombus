@@ -20,6 +20,11 @@ import:
 
 def input: aoc_api.retrieve_input_for_day(10)
 
+fun
+| List.last(List.cons(hd, [])): hd
+| List.last(List.cons(_, tail)): List.last(tail)
+
+
 let test_input:
   multiline:
    "....."
@@ -54,10 +59,17 @@ fun List.contains(ls, elt):
       | List.contains(tail, elt)
 
 class Point(x :: Int, y :: Int):
-  method north() :: Point: Point(x, y - 1)
-  method east() :: Point: Point(x+1, y)
-  method south() :: Point: Point(x, y+1)
-  method west() :: Point: Point(x-1, y)
+  method sum(): x + y
+  method add(other): Point(x + other.x, y + other.y)
+  method sub(other): Point(x - other.x, y - other.y)
+
+  method mul(by): Point(x * by, y * by)
+  method div(by): Point(x/by, y/by)
+
+  method north(~delta: delta=1) :: Point: Point(x, y - delta)
+  method east(~delta: delta=1) :: Point: Point(x+delta, y)
+  method south(~delta: delta=1) :: Point: Point(x, y+delta)
+  method west(~delta: delta=1) :: Point: Point(x-delta, y)
 
 fun add_directed_edge(graph, c1 :: Point, c2 :: Point):
   if graph.has_key(c1)
@@ -82,8 +94,9 @@ fun Pipe.of_char(char):
   | #{#\F}: Pipe(#false, #true , #true , #false)
 
 
-fun handle_edge(lines, graph, coord, char):
-  fun get_pipe(coord):
+fun handle_edge(lines, graph, coord, char, ~delta: delta=1):
+  fun get_pipe(position):
+    let coord = position.div(delta)
     cond
     | 0 <= coord.y && coord.y < lines.length() && \
       0 <= coord.x && coord.x < lines[coord.y].length():
@@ -95,16 +108,16 @@ fun handle_edge(lines, graph, coord, char):
   | c:
       let pipe = Pipe.of_char(c)
       when pipe
-      | when pipe.north && get_pipe(coord.north()).south
-        | add_edge(graph, coord, coord.north())
-        when pipe.east && get_pipe(coord.east()).west
-        | add_edge(graph, coord, coord.east())
-        when pipe.south && get_pipe(coord.south()).north
-        | add_edge(graph, coord, coord.south())
-        when pipe.west && get_pipe(coord.west()).east
-        | add_edge(graph, coord, coord.west())
+      | when pipe.north && get_pipe(coord.north(~delta: delta)).south
+        | add_edge(graph, coord, coord.north(~delta: delta))
+        when pipe.east && get_pipe(coord.east(~delta: delta)).west
+        | add_edge(graph, coord, coord.east(~delta: delta))
+        when pipe.south && get_pipe(coord.south(~delta: delta)).north
+        | add_edge(graph, coord, coord.south(~delta: delta))
+        when pipe.west && get_pipe(coord.west(~delta: delta)).east
+        | add_edge(graph, coord, coord.west(~delta: delta))
 
-fun parse_input(raw_input :: ReadableString):
+fun parse_input(raw_input :: ReadableString, ~delta: delta=1):
   let graph = MutableMap()
   let lines = utils.string.split_lines(raw_input)
   let mutable start_pos = #false
@@ -116,14 +129,14 @@ fun parse_input(raw_input :: ReadableString):
       char : line
       j : 0 ..
     if char == #{#\S}
-    | start_pos := Point(j,i)
-    | handle_edge(lines, graph, Point(j,i), char)
+    | start_pos := Point(j * delta,i * delta)
+    | handle_edge(lines, graph, Point(j * delta, i * delta), char, ~delta: delta)
   values(graph, start_pos)  
 
 fun get_connected(graph, node):
   if graph.has_key(node)
   | graph[node]
-  | []
+  | MutableSet{}
 
 fun shortest_path(graph, start_pos):
   let costs: MutableMap{start_pos: 0}
@@ -168,22 +181,23 @@ fun shortest_path(graph, start_pos):
 
 
 fun find_cycle(graph, start_pos):
-  class Path(current, path)
+  class Path(current, path, seen)
   let {start_neighbour, ...} = get_connected(graph, start_pos).snapshot()
   let mutable parent = MutableMap{}
-  let mutable queue = [Path(start_neighbour, [start_pos]), ...]
+  let mutable queue = [Path(start_neighbour, [start_pos], Set{start_neighbour}), ...]
   def mutable cycle_found = #false
   for(start_neighbour : get_connected(graph, start_pos)):
     parent[start_neighbour] := start_pos
 
   while queue != [] && !cycle_found:
-    let [Path(pos, path), rest, ...] = queue
+    let [Path(pos, path,seen), rest, ...] = queue
     queue := [rest,...]
     let neighbours = get_connected(graph, pos)
 
     for (neighbour : neighbours):
       skip_when parent.has_key(pos) && parent[pos] == neighbour
-      let entry = Path(neighbour, List.cons(pos, path))
+      skip_when seen[neighbour]
+      let entry = Path(neighbour, List.cons(pos, path), seen.union(Set{neighbour}))
       queue := queue ++ [entry]
       parent[neighbour] := pos
       when get_connected(graph, neighbour)[start_pos]
@@ -191,6 +205,46 @@ fun find_cycle(graph, start_pos):
 
   List.cons(cycle_found.current, cycle_found.path).reverse()
 
+fun find_connected(is_valid_node, start_pos):
+  let seen_points: MutableSet{start_pos}
+  let mutable queue = [start_pos]
+
+  fun unseen_empty_node(node :: Point):
+     is_valid_node(node) && !seen_points[node]
+
+  while queue != []:
+    let [node, tail, ...]: queue
+    queue := [tail, ...]
+    when unseen_empty_node(node.north())
+    | queue := List.cons(node.north(), queue)
+      seen_points[node.north()] := #true
+    when unseen_empty_node(node.east())
+    | queue := List.cons(node.east(), queue)
+      seen_points[node.east()] := #true
+    when unseen_empty_node(node.south())
+    | queue := List.cons(node.south(), queue)
+      seen_points[node.south()] := #true
+    when unseen_empty_node(node.west())
+    | queue := List.cons(node.west(), queue)
+      seen_points[node.west()] := #true
+  seen_points
+
+
+
+fun interpolate_path(List.cons(start, path) :: List.of(Point)):
+  fun loop(current, rest):
+    match rest
+    | []:
+        when start.sub(current).sum() != 2 && start.sub(current).sum() != -2
+        | println(start.sub(current))
+        [current.add(start.sub(current).div(2))]
+    | [head, tail, ...]:
+        when head.sub(current).sum() != 2 &&  head.sub(current).sum() != -2
+        | println(head.sub(current))
+        let current_interp: current.add(head.sub(current).div(2))
+        let [new_tail, ...]: loop(head, [tail, ...])
+        [current_interp, head, new_tail, ...]
+  List.cons(start, loop(start, path))
 
 fun solve_for_part1(raw_input :: ReadableString):
   def values(graph, start_pos): parse_input(raw_input)
@@ -213,16 +267,38 @@ check:
   solve_for_part1(test_input2)
   ~is 8
 
-let result1 = solve_for_part1(input)
+def result1 = solve_for_part1(input)
 // result1
 
+fun solve_for_part2(raw_input :: ReadableString):
+  def MAX_X: utils.string.split_lines(raw_input)[0].length() * 2
+  def MAX_Y: utils.string.split_lines(raw_input).length() * 2
 
-def values(graph, start_pos): parse_input(input)
+  def values(graph, start_pos): parse_input(raw_input, ~delta: 2)
 
-def values(costs, parents): shortest_path(graph, start_pos)
+  def values(costs, parents): shortest_path(graph, start_pos)
 
-def [cycle, ...] = find_cycle(graph, start_pos)
+  def [cycle, ...] = interpolate_path(find_cycle(graph, start_pos))
+  def path_points: Set{cycle, ...}
 
-def path_points: Set{cycle, ...}
 
+  fun in_range(p :: Point):
+    0 <= p.x && p.x <= MAX_X && \
+       0 <= p.y && p.y <= MAX_Y
 
+  fun is_valid_node(node :: Point): in_range(node) && !path_points[node]
+
+  def contained_points: find_connected(is_valid_node, Point(start_pos.x,start_pos.y + 1))
+
+  for values(sum=0):
+    each x: 0 .. MAX_X/2
+    each y: 0 .. MAX_Y/2
+    if contained_points[Point(x * 2, y * 2)]
+    | sum + 1
+    | sum
+
+check:
+  solve_for_part2(test_input)
+  ~is 17
+
+let result2 = solve_for_part2(input)
