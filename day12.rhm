@@ -1,0 +1,75 @@
+#lang rhombus/and_meta
+
+import:
+  file("./utils/aoc_api.rhm")
+  file("./utils/utils.rhm")
+  file("./utils/lang.rhm") open
+  lib("racket/main.rkt") as racket:
+    rename:
+      #{char-numeric?} as is_numeric_char
+      #{char->integer} as char_to_int
+      #{with-input-from-file} as with_input_from_file
+      #{with-output-to-file} as with_output_to_file
+      #{file-exists?} as exists_file
+
+  lib("racket/string.rkt") as string:
+    rename:
+      #{string-prefix?} as is_string_prefix
+      #{string-split} as split
+      #{string-trim} as trim
+
+def input: aoc_api.retrieve_input_for_day(12)
+def test_input:
+  multiline:
+    "???.### 1,1,3"
+    ".??..??...?##. 1,1,3"
+    "?#?#?#?#?#?#?#? 1,3,1,6"
+    "????.#...#... 4,1,1"
+    "????.######..#####. 1,6,5"
+    "?###???????? 3,2,1"
+
+class Pattern(s :: String):
+  implements Indexable
+  override method get(ind) : s[ind]
+  method length() : s.length()
+  method is_functional(ind):
+    match s[ind] | #{#\.}: #true | #{#\#}: #false
+  method is_broken(ind):
+    match s[ind] | #{#\#}: #true | #{#\.}: #false
+  method is_unknown(ind):
+    match s[ind] | #{#\?}: #true | #{#\.}: #false | #{#\#}: #false
+  method unknowns():
+    for List (i : 0 .. length()):
+      keep_when is_unknown(i)
+      i
+
+
+fun parse_input(raw_input :: ReadableString):
+  for List (line : utils.string.split_lines(raw_input)):
+    let [pat, spec]: utils.string.split(line, " ")
+    let spec = String.to_number.map(utils.string.split(spec, ","))
+    Pair(Pattern(pat), spec)
+
+
+
+parse_input(test_input)
+
+// "???  .###"  1  1  3
+//  012  3456   0  1  2
+// no_combinations(6, [1,1,3]):
+//   match c[6] with
+//   | #{#\#} : no_combinations(5, [1,1,2])
+//   | #{#\.} : no_combinations(5, [1,1,3])
+//   | #{#\?} : no_combinations(5, [1,1,2]) + no_combinations(5, [1,1,3])
+
+
+// no_combinations(1, 0): if c == ? | 1
+
+
+fun calculate_combinations(pat :: Pattern, inds :: List.of(Int)):
+  def memo: MutableMap()
+
+  fun
+  | no_combinations(ind, []): if pat.check_no_errors(ind) | 1 | 0
+  | no_combinations(ind, List.cons(ind, tail)):
+      
