@@ -98,27 +98,30 @@ fun
 fun parse_input(raw_input :: ReadableString):
   racket.#{string->list}.map(utils.string.split_lines(raw_input))
 
+fun calculate_rows_to_expand(lines :: List.of(List.of(Char))):
+  for List:
+    each values(i, row): List.Indexed(lines)
+    skip_when !utils.List.all(fun (c): c == #{#\.}, row)
+    i
+
+fun calculate_cols_to_expand(lines :: List.of(List.of(Char))):
+  def col_length: lines[0].length()
+  for List:
+    each j: 0 .. col_length
+    keep_when:
+      for values(result=#true):
+        each row : lines
+        skip_when row[j] == #{#\.}
+        final_when #true
+        row[j] == #{#\.}
+    j
+
 fun solve_for_part1(raw_input :: ReadableString):
   def lines = parse_input(raw_input)
 
-  def rows_to_expand:
-    for List:
-      each values(i, row): List.Indexed(lines)
-      skip_when !utils.List.all(fun (c): c == #{#\.}, row)
-      i
+  def rows_to_expand: calculate_rows_to_expand(lines)
 
-  def col_length: lines[0].length()
-  def cols_to_expand:
-    for List:
-      each j: 0 .. col_length
-      keep_when:
-        for values(result=#true):
-          each row : lines
-          skip_when row[j] == #{#\.}
-          final_when #true
-          row[j] == #{#\.}
-      j
-
+  def cols_to_expand: calculate_cols_to_expand(lines)
 
   def lines_w_expanded_rows:
     for values(ls=lines):
@@ -143,3 +146,31 @@ check:
 def result1 = solve_for_part1(input)
 // aoc_api.submit_result_for_day(11, result1)
 
+fun solve_for_part2(raw_input :: ReadableString, ~by: by=1000000):
+  def lines = parse_input(raw_input)
+  def rows_to_expand: calculate_rows_to_expand(lines)
+  def cols_to_expand: calculate_cols_to_expand(lines)
+  def points: extract_points(lines)
+
+  def expanded_points:
+    def MAX_ROWS: rows_to_expand.length()
+    def MAX_COLS: cols_to_expand.length()
+    for List (point: points):
+      let mul_y: utils.List.find_index(rows_to_expand, fun (y): point.y < y) || MAX_ROWS
+      let mul_x: utils.List.find_index(cols_to_expand, fun (x): point.x < x) || MAX_COLS
+      utils.Point(
+        point.x + mul_x * (by - 1),
+        point.y + mul_y * (by - 1)
+      )
+
+  calculate_cost(expanded_points)
+
+check:
+  solve_for_part2(test_input1, ~by: 10)
+  ~is 1030
+check:
+  solve_for_part2(test_input1, ~by: 100)
+  ~is 8410
+
+let result2 = solve_for_part2(input)
+// aoc_api.submit_result_for_day(11, result2, ~level: 2)

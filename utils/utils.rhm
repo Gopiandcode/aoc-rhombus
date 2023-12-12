@@ -96,6 +96,14 @@ fun List.nth(ls, ind):
       final_when i == ind
       if i == ind | result | #false
 
+fun
+| List.find_index(ls, pred): List.find_index(ls, pred, 0)
+| List.find_index([], pred, ind): #false
+| List.find_index(List.cons(hd, tail), pred, ind):
+    if pred(hd)
+    | ind
+    | List.find_index(tail, pred, ind + 1)
+
 
 class Point(x :: Int, y :: Int):
   method abs_manhatten_distance(other :: Point):
