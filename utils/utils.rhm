@@ -13,6 +13,9 @@ export:
   set
   array
   list
+  List
+  Point
+
 
 namespace array:
   export:
@@ -75,3 +78,37 @@ namespace list:
     let result: loop([], [], input_ls)
     result.reverse()
 
+fun List.all(pred :: Function, ls):
+  for values(result=#true):
+    each elt : ls
+    skip_when pred(elt)
+    final_when #true
+    #false
+
+
+fun List.nth(ls, ind):
+  if ind < 0
+  | #false
+  | for values(result=#false):
+      each:
+        elt: ls
+        i: 0 ..
+      final_when i == ind
+      if i == ind | result | #false
+
+
+class Point(x :: Int, y :: Int):
+  method abs_manhatten_distance(other :: Point):
+    math.abs(x - other.x) + math.abs(y - other.y)
+
+  method sum(): x + y
+  method add(other): Point(x + other.x, y + other.y)
+  method sub(other): Point(x - other.x, y - other.y)
+
+  method mul(by): Point(x * by, y * by)
+  method div(by): Point(x/by, y/by)
+
+  method north(~delta: delta=1) :: Point: Point(x, y - delta)
+  method east(~delta: delta=1) :: Point: Point(x+delta, y)
+  method south(~delta: delta=1) :: Point: Point(x, y+delta)
+  method west(~delta: delta=1) :: Point: Point(x-delta, y)

@@ -58,18 +58,6 @@ fun List.contains(ls, elt):
       | #true
       | List.contains(tail, elt)
 
-class Point(x :: Int, y :: Int):
-  method sum(): x + y
-  method add(other): Point(x + other.x, y + other.y)
-  method sub(other): Point(x - other.x, y - other.y)
-
-  method mul(by): Point(x * by, y * by)
-  method div(by): Point(x/by, y/by)
-
-  method north(~delta: delta=1) :: Point: Point(x, y - delta)
-  method east(~delta: delta=1) :: Point: Point(x+delta, y)
-  method south(~delta: delta=1) :: Point: Point(x, y+delta)
-  method west(~delta: delta=1) :: Point: Point(x-delta, y)
 
 fun add_directed_edge(graph, c1 :: Point, c2 :: Point):
   if graph.has_key(c1)
