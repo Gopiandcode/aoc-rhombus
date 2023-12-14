@@ -96,6 +96,11 @@ fun List.nth(ls, ind):
       final_when i == ind
       if i == ind | result | #false
 
+fun List.set_nth(ls, ind, vl):
+  match [ls, ind]
+  | [List.cons(_, tail), 0]: List.cons(vl, tail)
+  | [List.cons(hd, tail), n]: List.cons(hd, List.set_nth(tail, n - 1, vl))
+
 fun
 | List.find_index(ls, pred): List.find_index(ls, pred, 0)
 | List.find_index([], pred, ind): #false
