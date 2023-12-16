@@ -148,26 +148,38 @@ check:
 
 def result1: solve_for_part1(input)
 
+fun solve_for_part2(raw_input :: ReadableString):
+  def mutable max_seen : #false
+  fun record_max_seen(seen):
+    cond
+    | !max_seen: max_seen := seen
+    | max_seen < seen:
+        println("new max seen is: " +& seen)
+        max_seen := seen
+    | ~else: #void
 
-def mutable max_seen : 0
-def mutable grids:
-   for List (pos: Grid(test_input).valid_start_positions()):
-     def grid: Grid(test_input, ~start_pos: pos)
-     grid.step_beam()
-     when grid.beams_finished()
-     | max_seen := math.max(max_seen, grid.no_energised)
-     skip_when grid.beams_finished()
-     grid
-grids := List.sort(grids, fun (l,r): l.no_energised > r.no_energised)
+  def mutable grids:
+     for List (pos: Grid(raw_input).valid_start_positions()):
+       def grid: Grid(raw_input, ~start_pos: pos)
+       for (i : 0 .. 10): grid.step_beam()
+       when grid.beams_finished()
+       | record_max_seen(grid.no_energised)
+       skip_when grid.beams_finished()
+       grid
+  grids := List.sort(grids, fun (l,r): l.no_energised > r.no_energised)
 
-println(for List (grid : grids): grid.no_energised)
+  while grids != []:
+    let [grid, remaining, ...]: grids
+    grid.step_beam()
+    if grid.beams_finished()
+    | record_max_seen(grid.no_energised)
+      grids := [remaining, ...]
+    | grids := insert_into_sorted(grid, [remaining, ...], ~key: fun (elt): elt.no_energised)
+  max_seen
 
-while grids != []:
-  println("no grids is: " +& grids.length())
-  let [grid, remaining, ...]: grids
-  grid.step_beam()
-  if grid.beams_finished()
-  | max_seen := math.max(max_seen, grid.no_energised)
-    grids := [remaining, ...]
-  | grids := insert_into_sorted(grid, [remaining, ...], ~key: fun (elt): elt.no_energised)
-max_seen
+check:
+  solve_for_part2(test_input)
+  ~is 51
+
+def result2: solve_for_part2(input)
+result2
