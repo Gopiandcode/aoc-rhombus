@@ -153,9 +153,7 @@ fun solve_for_part2(raw_input :: ReadableString):
   fun record_max_seen(seen):
     cond
     | !max_seen: max_seen := seen
-    | max_seen < seen:
-        println("new max seen is: " +& seen)
-        max_seen := seen
+    | max_seen < seen: max_seen := seen
     | ~else: #void
 
   def mutable grids:
