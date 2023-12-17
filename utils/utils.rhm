@@ -61,6 +61,14 @@ namespace list:
   export:
     is_empty
     partition
+    insert_into_sorted
+
+  fun insert_into_sorted(elt, ls :: List, ~key: keyf):
+    match ls
+    | [hd, tl, ...] when keyf(hd) < keyf(elt): [elt, hd, tl, ...]
+    | List.cons(hd,tl): List.cons(hd, insert_into_sorted(elt, tl, ~key: keyf))
+    | []: [elt]
+
 
   fun is_empty(ls :: List) :: Boolean:
     match ls

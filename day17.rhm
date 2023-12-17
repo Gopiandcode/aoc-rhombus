@@ -1,0 +1,285 @@
+#lang rhombus/and_meta
+
+import:
+  file("./utils/aoc_api.rhm")
+  file("./utils/utils.rhm")
+  file("./utils/lang.rhm") open
+  meta:
+    lib("racket/syntax.rkt") as syntax
+
+  lib("racket/main.rkt") as racket:
+    rename:
+      #{char-numeric?} as is_numeric_char
+      #{char->integer} as char_to_int
+      #{with-input-from-file} as with_input_from_file
+      #{with-output-to-file} as with_output_to_file
+      #{file-exists?} as exists_file
+
+  lib("racket/string.rkt") as string:
+    rename:
+      #{string-prefix?} as is_string_prefix
+      #{string-split} as split
+      #{string-trim} as trim
+
+def input: aoc_api.retrieve_input_for_day(17)
+
+def test_input:
+  multiline:
+   "2413432311323"
+   "3215453535623"
+   "3255245654254"
+   "3446585845452"
+   "4546657867536"
+   "1438598798454"
+   "4457876987766"
+   "3637877979653"
+   "4654967986887"
+   "4564679986453"
+   "1224686865563"
+   "2546548887735"
+   "4322674655533"
+
+annot.macro 'Matrix': 'Array.of(Array.of(Int))'
+annot.macro 'Direction': 'matching(#'north||#'south||#'west||#'east)'
+
+fun parse_input(raw_input :: ReadableString) :: Matrix:
+  for Array (line : utils.string.split_lines(raw_input)):
+    for Array (char : line):
+      String.to_number("" +& char)
+
+
+class Grid(data :: Matrix, WIDTH :: Int, HEIGHT :: Int):
+  constructor (data :: Matrix):
+    super(data, data[0].length(), data.length())
+
+fun direction_to_delta(direction :: Direction) :: utils.Point:
+   match direction
+   | #'north: // ^
+        utils.Point(0, -1)
+   | #'south: // V
+        utils.Point(0, 1)
+   | #'east: // >
+        utils.Point(1, 0)
+   | #'west: // <
+        utils.Point(-1, 0)
+
+annot.macro 'Delta': 'converting(fun (dir :: Direction) :: utils.Point: direction_to_delta(dir))'
+
+class State(
+    position :: utils.Point,
+    direction :: Direction,
+    steps :: Int,
+  ):
+ method valid_point(grid :: Grid):
+   0 <= steps && steps <= 3 && \
+   0 <= position.x && position.x < grid.WIDTH && \
+   0 <= position.y && position.y < grid.HEIGHT
+
+ method ultra_valid_point(grid :: Grid):
+   0 <= steps && steps <= 10 && \
+   0 <= position.x && position.x < grid.WIDTH && \
+   0 <= position.y && position.y < grid.HEIGHT
+
+ method turning_directions():
+   match direction
+   | #'north: // ^
+       [#'west, #'east]
+   | #'east:  // ->
+       [#'north, #'south]
+   | #'south: // V
+       [#'east, #'west]
+   | #'west: // <-
+       [#'south, #'north]
+
+ method ultra_neighbours_all(grid :: Grid) :: List.of(Pair):
+   let [left_dir, right_dir]: turning_directions()
+   fun cost(start, stop):
+      let mutable cost = 0
+      for (i : start .. stop):
+        def pos = position.add((direction :: Delta).mul(i))
+        keep_when 0 <= pos.x && pos.x < grid.WIDTH && 0 <= pos.y && pos.y < grid.HEIGHT
+        cost := cost + grid.data[pos.y][pos.x]
+      cost
+   let mutable final_node = #false
+   let next_nodes:
+       (for List (i : 4 .. 11):
+          def pos = position.add((direction :: Delta).mul(i))
+          keep_when 0 <= pos.x && pos.x < grid.WIDTH && 0 <= pos.y && pos.y < grid.HEIGHT
+          def node_cost = cost(1, i + 1)
+          when pos.x == grid.WIDTH - 1 && pos.y == grid.HEIGHT - 1
+          | final_node := Pair(State(pos, direction, i),node_cost)
+          each ls: [
+            State(pos, left_dir, 0),
+            State(pos, right_dir, 0)
+          ]
+          keep_when 0 <= ls.position.x && \
+                    ls.position.x < grid.WIDTH && \
+                    0 <= ls.position.y && \
+                    ls.position.y < grid.HEIGHT
+          Pair(ls, node_cost))
+   if final_node
+   | List.cons(final_node, next_nodes)
+   | next_nodes
+
+ method ultra_neighbours_internal(grid :: Grid) :: List:
+   let [left_dir, right_dir]: turning_directions()
+   [ State(position.add((direction :: Delta)), direction, steps + 1) ] ++ \
+   (if steps >= 4 | [ State(position.add(left_dir :: Delta), left_dir, 1) ] | []) ++ \
+   (if steps >= 4 | [ State(position.add(right_dir :: Delta), right_dir, 1) ] | [])
+
+ method neighbours_internal(grid :: Grid) :: List:
+   let [left_dir, right_dir]: turning_directions()
+   [ State(position.add(direction :: Delta), direction, steps + 1),
+     State(position.add(left_dir :: Delta), left_dir, 1),
+     State(position.add(right_dir :: Delta), right_dir, 1) ]
+
+ method ultra_neighbours(grid :: Grid) :: List:
+   for List (neighbour : ultra_neighbours_internal(grid)):
+     skip_when !neighbour.ultra_valid_point(grid)
+     neighbour
+
+ method neighbours(grid :: Grid) :: List:
+   for List (neighbour : neighbours_internal(grid)):
+     skip_when !neighbour.valid_point(grid)
+     neighbour
+
+fun distance (x1, y1, x2, y2):
+  let dx = x2 - x1
+  let dy = y2 - y1
+  math.sqrt(dx * dx + dy * dy)
+
+fun solve(grid :: Grid):
+  let initial_point = State(utils.Point(0, 0), #'east, 1)
+  let mutable queue: [initial_point]
+  let heat_loss : MutableMap{initial_point: 0}
+  let node_cost : MutableMap{}
+  let mutable target_point_found = #false
+
+  // a* algorithm
+  fun cost_of_node(state :: State):
+    if node_cost.has_key(state)
+    | node_cost[state]
+    | let cost =  - heat_loss[state] - distance(grid.WIDTH - 1, grid.HEIGHT - 1, state.position.x, state.position.y)
+      node_cost[state] := cost
+      cost
+
+  while !target_point_found:
+    let [state, next, ...]: queue
+    queue := [next, ...]
+    let state_heat_loss = heat_loss[state]
+
+    for (neighbour: state.neighbours(grid)):
+      let neighbour_cost = state_heat_loss + grid.data[neighbour.position.y][neighbour.position.x]
+      cond
+      | (heat_loss.has_key(neighbour) && heat_loss[neighbour] > neighbour_cost) || !heat_loss.has_key(neighbour):
+          heat_loss[neighbour] := neighbour_cost
+          queue := utils.list.insert_into_sorted(neighbour, queue, ~key: cost_of_node)
+      | ~else:
+          #void
+      when neighbour.position.x == grid.WIDTH - 1 && neighbour.position.y == grid.HEIGHT - 1
+      | target_point_found := neighbour
+
+  heat_loss[target_point_found]
+
+fun solve_for_part1(raw_input :: ReadableString):
+  let grid = Grid(parse_input(raw_input))
+  solve(grid)
+
+check:
+  solve_for_part1(test_input)
+  ~is 102
+
+// let result1 : solve_for_part1(input)
+
+fun ultra_solve(grid :: Grid):
+  let initial_point = State(utils.Point(0, 0), #'east, 1)
+  let queue_nodes : MutableSet{initial_point}
+  let mutable queue: [initial_point]
+  let heat_loss : MutableMap{initial_point: 0}
+  let node_cost : MutableMap{}
+  let mutable target_point_found = #false
+
+  // a* algorithm
+  fun cost_of_node(state :: State):
+    if node_cost.has_key(state)
+    | node_cost[state]
+    | let cost =  - heat_loss[state] // - distance(grid.WIDTH - 1, grid.HEIGHT - 1, state.position.x, state.position.y)
+      node_cost[state] := cost
+      cost
+
+  while !target_point_found:
+    let [state, next, ...]: queue
+    queue := [next, ...]
+    queue_nodes[state] := #false
+    let state_heat_loss = heat_loss[state]
+
+    for (neighbour: state.ultra_neighbours(grid)):
+      skip_when queue_nodes[neighbour]
+      let neighbour_cost = state_heat_loss + grid.data[neighbour.position.y][neighbour.position.x]
+      cond
+      | (heat_loss.has_key(neighbour) && heat_loss[neighbour] > neighbour_cost) || !heat_loss.has_key(neighbour):
+          queue_nodes[neighbour] := #true
+          heat_loss[neighbour] := neighbour_cost
+          queue := utils.list.insert_into_sorted(neighbour, queue, ~key: cost_of_node)
+      | ~else:
+          #void
+      when neighbour.position.x == grid.WIDTH - 1 && neighbour.position.y == grid.HEIGHT - 1 && neighbour.steps >= 4
+      | target_point_found := neighbour
+
+  heat_loss[target_point_found]
+
+
+fun ultra_solve_optim(grid :: Grid):
+  let initial_point = State(utils.Point(0, 0), #'east, 1)
+  let mutable queue: [initial_point]
+  let heat_loss : MutableMap{initial_point: 0}
+  let node_cost : MutableMap{}
+  let mutable target_point_found = #false
+
+  // a* algorithm
+  fun cost_of_node(state :: State):
+    - heat_loss[state]
+    // if node_cost.has_key(state)
+    // | node_cost[state]
+    // | let cost = \
+    //         - heat_loss[state] \
+    //         - distance(grid.WIDTH - 1, grid.HEIGHT - 1, state.position.x, state.position.y)
+    //   node_cost[state] := cost
+    //   cost
+
+  while !target_point_found:
+    let [state, next, ...]: queue
+    queue := [next, ...]
+
+    let state_heat_loss = heat_loss[state]
+
+    // println("neigbours of " +& state.position +& " are " +& \
+    //      (for List (Pair (neigbour, cost) : state.ultra_neighbours_all(grid)): [neigbour.position, cost]))
+    for (Pair(neighbour, cost): state.ultra_neighbours_all(grid)):
+      let neighbour_cost = state_heat_loss + cost
+      cond
+      | (heat_loss.has_key(neighbour) && heat_loss[neighbour] > neighbour_cost) || \
+            !heat_loss.has_key(neighbour):
+          heat_loss[neighbour] := neighbour_cost
+          queue := utils.list.insert_into_sorted(neighbour, queue, ~key: cost_of_node)
+      | ~else:
+          #void
+      when neighbour.position.x == grid.WIDTH - 1 && neighbour.position.y == grid.HEIGHT - 1
+      | target_point_found := neighbour
+
+  heat_loss[target_point_found]
+
+
+fun solve_for_part2(raw_input :: ReadableString):
+  let grid = Grid(parse_input(raw_input))
+  ultra_solve_optim(grid)
+
+
+check:
+  solve_for_part2(test_input)
+  ~is 94
+
+// solve_for_part2(input)
+solve_for_part2(input)
+
+
