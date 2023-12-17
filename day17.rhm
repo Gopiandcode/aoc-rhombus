@@ -201,11 +201,12 @@ fun ultra_solve(grid :: Grid):
 
   // a* algorithm
   fun cost_of_node(state :: State):
-    if node_cost.has_key(state)
-    | node_cost[state]
-    | let cost =  - heat_loss[state] // - distance(grid.WIDTH - 1, grid.HEIGHT - 1, state.position.x, state.position.y)
-      node_cost[state] := cost
-      cost
+    - heat_loss[state]
+    // if node_cost.has_key(state)
+    // | node_cost[state]
+    // | let cost =  - heat_loss[state] // - distance(grid.WIDTH - 1, grid.HEIGHT - 1, state.position.x, state.position.y)
+    //   node_cost[state] := cost
+    //   cost
 
   while !target_point_found:
     let [state, next, ...]: queue
@@ -272,7 +273,7 @@ fun ultra_solve_optim(grid :: Grid):
 
 fun solve_for_part2(raw_input :: ReadableString):
   let grid = Grid(parse_input(raw_input))
-  ultra_solve_optim(grid)
+  ultra_solve(grid)
 
 
 check:
