@@ -153,24 +153,23 @@ check:
 //def result1 = solve_for_part1(input)
 
 
-// let instructions = parse_input(raw_input)
-// let values(_, vertices):
-//   for values(current_position=utils.Point(0,0), vertices=[]) (ins : instructions):
-//     let delta = ins.decode().delta()
-//     let new_position = current_position.add(delta)
-//     values(new_position, List.cons(new_position, vertices))
-// let shape = vertices.reverse()
+fun solve_for_part2(raw_input):
+  let instructions = parse_input(raw_input)
+  def values(_, vertices, perimeter):
+    for values(current_position=utils.Point(0,0), vertices=[utils.Point(0,0)], perimeter=0) (ins : instructions):
+      let delta = ins.decode().delta()
+      let new_position = current_position.add(delta)
+      values(new_position, List.cons(new_position, vertices), perimeter + math.abs(delta.x) + math.abs(delta.y))
+  let List.cons(prev_vertex, vertexes) = vertices.reverse()
 
-let instructions = parse_input(raw_input)
-let decoded_instructions = for List (ins : instructions): ins.decode()
+  let values(_, sum):
+    for values(prev_vertex=prev_vertex, sum=0) (vertex : vertexes):
+      let new_sum = sum + ((prev_vertex.x * vertex.y) - (vertex.x * prev_vertex.y))
+      values(vertex, new_sum)
+  (1/2) * math.abs(sum) + perimeter/2 + 1
 
-let dig_map = build_dig_map(decoded_instructions)
-for values(current_position=utils.Point(0,0)) (instruction : decoded_instructions):
-  let delta = Direction.to_delta(instruction.direction)
-  for values(current_position=current_position) (i : 0 .. instruction.distance):
-    let new_position = current_position.add(delta)
-    dig_map[new_position] := #true
-    new_position
+check:
+  solve_for_part2(test_input)
+  ~is 952408144115
 
-dig_map.fill_in_interior()
-dig_map.count_area()
+solve_for_part2(input)
