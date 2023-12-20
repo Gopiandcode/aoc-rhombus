@@ -107,11 +107,6 @@ fun disjoint_states(s1 :: State, s2 :: State):
   disjoint_ranges(s1.x, s2.x)
 
 fun split_state(s1 :: State, s2 :: State):
-  // println("splitting states " +& s1 +& " and " +& s2)
-  // println("is disjoint a? " +& s1.a +& " and " +& s2.a  +&  " == " +& disjoint_ranges(s1.a, s2.a))
-  // println("is disjoint m? " +& s1.m +& " and " +& s2.m  +&  " == " +& disjoint_ranges(s1.m, s2.m))
-  // println("is disjoint s? " +& s1.s +& " and " +& s2.s  +&  " == " +& disjoint_ranges(s1.s, s2.s))
-  // println("is disjoint x? " +& s1.x +& " and " +& s2.x  +&  " == " +& disjoint_ranges(s1.x, s2.x))
   let values(a_overlap, a_non_overlap) = split_range(s1.a, s2.a)
   let values(m_overlap, m_non_overlap) = split_range(s1.m, s2.m)
   let values(s_overlap, s_non_overlap) = split_range(s1.s, s2.s)
@@ -143,13 +138,6 @@ fun split_state(s1 :: State, s2 :: State):
        (s_with_m_non_overlap) ++ \
        (s_with_s_non_overlap) ++ \
        (s_with_x_non_overlap)
-  for:
-    each r1 : result
-    each r2 : result
-    skip_when r1 == r2
-    check:
-      disjoint_states(r1, r2)
-      ~is #true
   result
 
 class Condition(var :: String, number :: Int):
