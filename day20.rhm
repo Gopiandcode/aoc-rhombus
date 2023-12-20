@@ -134,7 +134,7 @@ fun fold_over_evaluate(acc, f, queue, config, ~pred: pred = fun(acc, queue, conf
   | values(acc, config)
   | let acc = f(acc, queue, config)
     let values(queue, config) = evaluate(queue, config)
-    fold_over_evaluate(acc, f, queue, config)
+    fold_over_evaluate(acc, f, queue, config, ~pred: pred)
 
 let init_queue = [Pair(Pair("input", "broadcaster"), #'low)]
 
@@ -170,7 +170,7 @@ fun run_cycle_w_single_rx(config) :: Configuration || False:
     match rx_targets
     | [#'low]: rx_found := #true; #true
     | _: queue == []
-  let values(_, config):
+  let values(_, new_config):
      fold_over_evaluate(
        SignalCount(),
        fun (acc, queue, config): acc.process(queue),
@@ -180,7 +180,7 @@ fun run_cycle_w_single_rx(config) :: Configuration || False:
      )
   if rx_found
   | #false
-  | config
+  | new_config
 
 
 fun repeat_and_count(config, ~till: till = 1000):
@@ -197,9 +197,9 @@ fun repeat_and_count(config, ~till: till = 1000):
 
 fun repeat_till_rx(config):
   recur loop(config=config, step=1):
-    let config = run_cycle_w_single_rx(config)
-    if config
-    | loop(config, step + 1)
+    let new_config = run_cycle_w_single_rx(config)
+    if new_config
+    | loop(new_config, step + 1)
     | step
 
 
