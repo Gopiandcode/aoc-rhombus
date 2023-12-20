@@ -51,17 +51,37 @@ class Range(start :: Int, stop :: Int):
     | super(low, high)
 
   method count():
-    stop - start - 1
+    stop - start
+
+fun split_range(r1 :: Range, r2 :: Range) :: values(Range, List.of(Range)):
+  let overlap_start = math.max(r1.start, r2.start)
+  let overlap_stop = math.min(r1.stop, r2.stop)
+  let non_overlapping:
+    (if overlap_start > r1.start | [Range(r1.start, overlap_start)] | []) ++ \
+    (if overlap_start > r2.start | [Range(r2.start, overlap_start)] | []) ++ \
+    (if overlap_stop < r1.stop | [Range(overlap_stop, r1.stop)] | []) ++ \
+    (if overlap_stop < r2.stop | [Range(overlap_stop, r2.stop)] | [])
+  values(Range(overlap_start, overlap_stop), non_overlapping)
+  
+check:
+  split_range(Range(1,10), Range(5,15))
+  ~is values(Range(5,10), [Range(1,5), Range(10,15)])
+
+check:
+  split_range(Range(5,15), Range(1,10))
+  ~is values(Range(5,10), [Range(1,5), Range(10,15)])
+
+check:
+  split_range(Range(1,10), Range(3,6))
+  ~is values(Range(3,6), [Range(1,3), Range(6,10)])
+
+check:
+  split_range(Range(3,6), Range(1,10))
+  ~is values(Range(3,6), [Range(1,3), Range(6,10)])
 
 
 fun disjoint_ranges(r1 :: Range, r2 :: Range):
-  !(r1.start <= r2.start && r2.start < r1.stop || \
-  r1.start <= r2.stop && r2.stop <= r1.stop || \
-  r2.start <= r1.start && r1.start < r2.stop || \
-  r2.start <= r1.stop && r1.stop <= r2.stop || \
-  r2.start <= r1.start && r1.stop <= r2.stop || \
-  r1.start <= r2.start && r2.stop <= r1.stop)
-
+  r1.stop <= r2.start || r2.stop <= r1.start
 
 class State(a :: Range, m :: Range, s :: Range, x :: Range):
   implements Indexable
@@ -85,6 +105,52 @@ fun disjoint_states(s1 :: State, s2 :: State):
   disjoint_ranges(s1.m, s2.m) || \
   disjoint_ranges(s1.s, s2.s) || \
   disjoint_ranges(s1.x, s2.x)
+
+fun split_state(s1 :: State, s2 :: State):
+  // println("splitting states " +& s1 +& " and " +& s2)
+  // println("is disjoint a? " +& s1.a +& " and " +& s2.a  +&  " == " +& disjoint_ranges(s1.a, s2.a))
+  // println("is disjoint m? " +& s1.m +& " and " +& s2.m  +&  " == " +& disjoint_ranges(s1.m, s2.m))
+  // println("is disjoint s? " +& s1.s +& " and " +& s2.s  +&  " == " +& disjoint_ranges(s1.s, s2.s))
+  // println("is disjoint x? " +& s1.x +& " and " +& s2.x  +&  " == " +& disjoint_ranges(s1.x, s2.x))
+  let values(a_overlap, a_non_overlap) = split_range(s1.a, s2.a)
+  let values(m_overlap, m_non_overlap) = split_range(s1.m, s2.m)
+  let values(s_overlap, s_non_overlap) = split_range(s1.s, s2.s)
+  let values(x_overlap, x_non_overlap) = split_range(s1.x, s2.x)
+  let s_with_a_non_overlap:
+    for List (a : a_non_overlap):
+       each m : List.cons(m_overlap, m_non_overlap)
+       each s : List.cons(s_overlap, s_non_overlap)
+       each x : List.cons(x_overlap, x_non_overlap)
+       State(a, m, s, x)
+  let s_with_m_non_overlap:
+    for List:
+       each m : m_non_overlap
+       each s : List.cons(s_overlap, s_non_overlap)
+       each x : List.cons(x_overlap, x_non_overlap)
+       State(a_overlap, m, s, x)
+  let s_with_s_non_overlap:
+     for List:
+       each s : s_non_overlap
+       each x : List.cons(x_overlap, x_non_overlap)
+       State(a_overlap, m_overlap, s, x)
+  let s_with_x_non_overlap:
+    for List:
+       each x : x_non_overlap
+       State(a_overlap, m_overlap, s_overlap, x)
+  let result:
+     [State(a_overlap, m_overlap, s_overlap, x_overlap)] ++ \
+       (s_with_a_non_overlap) ++ \
+       (s_with_m_non_overlap) ++ \
+       (s_with_s_non_overlap) ++ \
+       (s_with_x_non_overlap)
+  for:
+    each r1 : result
+    each r2 : result
+    skip_when r1 == r2
+    check:
+      disjoint_states(r1, r2)
+      ~is #true
+  result
 
 class Condition(var :: String, number :: Int):
   nonfinal
@@ -111,7 +177,7 @@ class Gt():
   override method evaluate_abstract(map):
     let var_range = map[var]
     if var_range.start <= number && number < var_range.stop
-    | Pair(map[[var, Range(number, var_range.stop)]], map[[var, Range(var_range.start, number)]])
+    | Pair(map[[var, Range(number + 1, var_range.stop)]], map[[var, Range(var_range.start, number + 1)]])
     | #false
 
 
@@ -202,7 +268,7 @@ fun add_to_state_values(state_values, key, state):
   | !state_values.has_key(key): state_values ++ {key: Set(state)}
   | ~else: state_values
 
-def initial_state = State(Range(0, 4001), Range(0, 4001), Range(0, 4001), Range(0, 4001))
+def initial_state = State(Range(1, 4001), Range(1, 4001), Range(1, 4001), Range(1, 4001))
 
 fun evaluate_abstract(pipeline :: Map.of(String, Workflow)):
   recur loop(state_values=Map{"in": Set{initial_state}}, keys=[Pair("in", initial_state)]):
@@ -213,18 +279,37 @@ fun evaluate_abstract(pipeline :: Map.of(String, Workflow)):
         | key == "R": values(add_to_state_values(state_values, "R", state), states)
         | ~else:
             values(state_values, pipeline[key].evaluate_abstract(state, states))
-    println(keys.length())
     if keys == []
     | state_values
     | loop(state_values, keys)
 
+fun Set.remove_all(s :: Set, elts :: List):
+  for values(s = s):
+    each elt: elts
+    s.remove(elt)
 
-let values(pipeline, inputs) = parse_input(test_input)
-for values(sum=0) (state : evaluate_abstract(pipeline)["A"]):
-  sum + state.count()
+fun Set.add_all(s :: Set, elts :: List):
+  let [elt, ...]: elts
+  s.union(Set(elt, ...))
 
-for (state : evaluate_abstract(pipeline)["A"]):
-  for (ostate : evaluate_abstract(pipeline)["A"]):
-     when state != ostate && !disjoint_states(state, ostate)
-     | println("found overlapping states " +& state +& " and " +& ostate)
+fun simplify_states(states :: Set.of(State)):
+  let values(states_to_remove, states_to_add):
+    for values(states_to_remove=#false, states_to_add=#false):
+      each s1 : states
+      each s2 : states
+      skip_when s1 == s2
+      keep_when !disjoint_states(s1, s2)
+      final_when #true
+      values([s1, s2], split_state(s1, s2))
+  if states_to_remove && states_to_add
+  | simplify_states(Set.add_all(Set.remove_all(states, states_to_remove), states_to_add))
+  | states
 
+fun solve_for_part2(raw_input):
+  let values(pipeline, inputs) = parse_input(raw_input)
+  for values(sum=0) (state : simplify_states(evaluate_abstract(pipeline)["A"])):
+    sum + state.count()
+
+check:
+  solve_for_part2(test_input)
+  ~is 167409079868000
