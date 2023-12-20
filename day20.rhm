@@ -172,8 +172,8 @@ fun run_cycle_w_single_rx(config) :: Configuration || False:
     | _: queue == []
   let values(_, new_config):
      fold_over_evaluate(
-       SignalCount(),
-       fun (acc, queue, config): acc.process(queue),
+       #void,
+       fun (#void, queue, config): #void,
        init_queue,
        config,
        ~pred: check_for_single_rx
