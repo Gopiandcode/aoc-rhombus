@@ -1,0 +1,27 @@
+#lang rhombus/and_meta
+
+import:
+  file("./utils/aoc_api.rhm")
+  file("./utils/utils.rhm")
+  file("./utils/lang.rhm") open
+  lib("data/heap.rkt") as heap
+  meta:
+    lib("racket/syntax.rkt") as syntax
+
+  lib("racket/main.rkt") as racket:
+    rename:
+      #{char-numeric?} as is_numeric_char
+      #{char->integer} as char_to_int
+      #{with-input-from-file} as with_input_from_file
+      #{with-output-to-file} as with_output_to_file
+      #{file-exists?} as exists_file
+
+  lib("racket/string.rkt") as string:
+    rename:
+      #{string-prefix?} as is_string_prefix
+      #{string-split} as split
+      #{string-trim} as trim
+
+def input: aoc_api.retrieve_input_for_day(20)
+
+
